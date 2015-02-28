@@ -58,7 +58,7 @@ var w = {},
                 if (n instanceof Vector){
                     return callbacks.vector ?
                             callbacks.vector.call(this, n) :
-                            this[args.callee.name].call(this, n.x, n.y);
+                            this[args.callee.name].apply(this, n.args());
                 } else {
                     return callbacks.oneArg ?
                         callbacks.oneArg.call(this, n) :
@@ -69,8 +69,22 @@ var w = {},
             }
         }
     
-    Vector.prototype.copy = function copy(){
+    Vector.prototype.copy = function copy() {
         return new Vector(this.x, this.y);
+    }
+    Vector.prototype.rotate = function(angle, v){
+        var sub = this.sub(v),
+            x = v.x + ((sub.x * Math.cos(angle)) - (sub.y * Math.sin(angle))),
+            y = v.y + ((sub.x * Math.sin(angle)) + (sub.y * Math.cos(angle)));
+        return new Vector(x, y);
+    }
+    Vector.prototype.dot = function dot() {
+        return typeHelper.apply(this, [arguments, {
+            args: function(x, y) {
+                var tmp = this.sub(x, y)
+                return tmp.x + tmp.y;
+            }
+        }]);
     }
     Vector.prototype.scale = function scale(){
         return typeHelper.apply(this, [arguments, {
@@ -86,6 +100,9 @@ var w = {},
             }
         }]);
     };
+    Vector.prototype.args = function args(){
+        return [this.x, this.y];
+    }
     Vector.prototype.add = function add(){
         return typeHelper.apply(this, [arguments, {
             args: function(x, y) {
@@ -100,14 +117,21 @@ var w = {},
         this.center = center;
         this.vertices = [];
     };
-    Polygon.prototype.addVertex = function(v) {
-        this.addRelativeVertex(v.sub(this.center));
-    }
-    Polygon.prototype.addRelativeVertex = function(v) {
+    Polygon.prototype.addVertex = function (v) {
         this.vertices.push(v);
     }
+    Polygon.prototype.intersectsWith = function (poly){
+        var test_vectors = this.vertices
+            .reduce((function(prev, next, i) {
+                var iPrev = i ? this.vertices.length - 1 : i,
+                    iNext = iPrev == this.vertices.length? 0 : i+1;
+
+                prev.push(this.vertices[iPrev].sub(this.vertices[iNext]));
+                return prev;
+            }).bind(this), [this.vertices[this.vertices.length-1]]);
+    }
     w.Polygon = Polygon;
-});
+})();
 (function(){
     var gravity = new w.Vector(0, 1).scale(9.8),
         dumpping = -1,
@@ -144,7 +168,7 @@ var w = {},
 })();
 (function(){
     var id = 0,
-        WorldObj = function(options){
+        WorldObj = function WorldObj(options) {
             this.position = new w.Vector(options.x, options.y);
             this.gravity = typeof options.gravity === "undefined"? options.gravity : true;
             this.collision = typeof options.gravity === "undefined"? true : false;
@@ -153,6 +177,9 @@ var w = {},
             this.acceleration =new  w.Vector(0, 0);
             this.id = id++;
         };
+    WorldObj.prototype.calcPoly = function() {
+        return new w.Polygon(this.position);
+    }
     WorldObj.prototype.drawObjShape = function(c) {
         throw 'Empty shape';
     }
@@ -161,6 +188,13 @@ var w = {},
     }
     WorldObj.prototype.move = function(v) {
         this.position = this.position.add(v);
+        this.poly = this.calcPoly();
+    }
+    WorldObj.prototype.drawObjShape = function(c){
+        c.moveTo.apply(c, this.poly.vertices[0].args());
+        for (var i = 1; i < this.poly.vertices.length; i++) {
+            c.lineTo.apply(c, this.poly.vertices[i].args());
+        }
     }
     WorldObj.prototype.draw = function(c){
         c.save();
@@ -175,29 +209,49 @@ var w = {},
 })();
 (function(){
     var private_vars = {},
-        Ball = function(options) {
+        Ball = function Ball(options) {
             w.WorldObj.apply(this, arguments); 
             private_vars[this.id] = {
                 radius: options.radius || 20,
             }
+            this.poly = this.calcPoly();
         };    
     Ball.prototype = Object.create(w.WorldObj.prototype);
+    Ball.prototype.calcPoly = function() {
+        var poly = w.WorldObj.prototype.calcPoly.apply(this, arguments),
+            size = 14,
+            axis = new w.Vector(1, 0),
+            trangle = (2*Math.PI)/size;
+         
+        for (var i=0; i < size; i++) {
+            var point = new w.Vector(private_vars[this.id].radius, 0);
+            point = this.position.add(point.rotate(i*trangle, axis));
+            poly.addVertex(point);
+        }
+        return poly;
+    }
     Ball.prototype.drawObjShape = function(c){
-        c.arc(this.position.x, this.position.y, private_vars[this.id].radius, 0, 2*Math.PI, false);
+        c.arc.apply(c, this.position.args().concat([private_vars[this.id].radius, 0, 2*Math.PI, false]));
     }
     w.Ball = Ball;
 })();
 (function(){
     var private_vars = {},
-        Block = function(options){
+        Block = function Block(options){
             w.WorldObj.apply(this, arguments); 
             private_vars[this.id] = {
                 size: options.size? options.size : new w.Vector(10, 10)   
             }
+            this.poly = this.calcPoly();
         };
     Block.prototype = Object.create(w.WorldObj.prototype);
-    Block.prototype.drawObjShape = function(c) {
-        c.fillRect(this.position.x, this.position.y, private_vars[this.id].size.x, private_vars[this.id].size.y);
+    Block.prototype.calcPoly = function() {
+        var poly = w.WorldObj.prototype.calcPoly.apply(this, arguments);
+        poly.addVertex(this.position);
+        poly.addVertex(this.position.add(private_vars[this.id].size.scale(new w.Vector(1,0))));
+        poly.addVertex(this.position.add(private_vars[this.id].size));
+        poly.addVertex(this.position.add(private_vars[this.id].size.scale(new w.Vector(0,1))));
+        return poly;
     }
     w.Block = Block;
 })();
