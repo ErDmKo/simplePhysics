@@ -1,3 +1,10 @@
+Array.prototype.max = function() {
+  return Math.max.apply(null, this);
+};
+
+Array.prototype.min = function() {
+  return Math.min.apply(null, this);
+};
 var w = {},
     main = function() {
         var ball = new w.Ball({x:100, y:100}),
@@ -26,7 +33,7 @@ var w = {},
         prevTime = startTime,
         fps = 0,
         frames = 0,
-        FrameCounter = function(){
+        FrameCounter = function FrameCounter() {
             
         }
     FrameCounter.prototype.begin = function() {
@@ -48,16 +55,20 @@ var w = {},
     w.FrameCounter = FrameCounter;
 })();
 (function(){
-    var Vector = function(x, y){
+    var Vector = function Vector(x, y){
             this.x = x || 0;
             this.y = y || 0;
         },
         typeHelper = function(args, callbacks) {
+            // TODO universe this for w obj
             if (args.length == 1){
-                var n = args[0];
+                var n = args[0],
+                    class_name = typeof n === "undefined" ? 
+                        "undefined" : n.constructor.name.toLowerCase();
+
                 if (n instanceof Vector){
-                    return callbacks.vector ?
-                            callbacks.vector.call(this, n) :
+                    return callbacks[class_name] ?
+                            callbacks[class_name].call(this, n) :
                             this[args.callee.name].apply(this, n.args());
                 } else {
                     return callbacks.oneArg ?
@@ -72,6 +83,11 @@ var w = {},
     Vector.prototype.copy = function copy() {
         return new Vector(this.x, this.y);
     }
+    Vector.prototype.length = function() {
+        return Math.sqrt(this.args().reduce(function(prev, next){
+            return prev*prev + next*next
+        }));
+    }
     Vector.prototype.rotate = function(angle, v){
         var sub = this.sub(v),
             x = v.x + ((sub.x * Math.cos(angle)) - (sub.y * Math.sin(angle))),
@@ -81,7 +97,7 @@ var w = {},
     Vector.prototype.dot = function dot() {
         return typeHelper.apply(this, [arguments, {
             args: function(x, y) {
-                var tmp = this.sub(x, y)
+                var tmp = this.scale(x, y)
                 return tmp.x + tmp.y;
             }
         }]);
@@ -103,6 +119,9 @@ var w = {},
     Vector.prototype.args = function args(){
         return [this.x, this.y];
     }
+    Vector.prototype.toString = function toString(){
+        return '[' + this.x + ',' + this.y + ']';
+    }
     Vector.prototype.add = function add(){
         return typeHelper.apply(this, [arguments, {
             args: function(x, y) {
@@ -113,7 +132,12 @@ var w = {},
     w.Vector = Vector;
 })();
 (function(){
-    var Polygon = function(center) {
+    var intersect_safe = function intersect_safe(a, b){
+           return  a.slice().filter(function(n){
+                return b.indexOf(n) !=-1;
+            })
+        },
+        Polygon = function Polygon(center) {
         this.center = center;
         this.vertices = [];
     };
@@ -121,21 +145,58 @@ var w = {},
         this.vertices.push(v);
     }
     Polygon.prototype.intersectsWith = function (poly){
-        var test_vectors = this.vertices
-            .reduce((function(prev, next, i) {
-                var iPrev = i ? this.vertices.length - 1 : i,
-                    iNext = iPrev == this.vertices.length? 0 : i+1;
+        var self = this,
+            point_wallker = function(prev, next, i) {
+                var iPrev = i,
+                    iNext = iPrev == this.vertices.length - 1 ? 0 : i+1;
 
                 prev.push(this.vertices[iPrev].sub(this.vertices[iNext]));
                 return prev;
-            }).bind(this), [this.vertices[this.vertices.length-1]]);
+            },
+            axis_vectors = this.vertices
+                .reduce(point_wallker.bind(this), [])
+                .concat(poly.vertices.reduce(point_wallker.bind(poly), [])),
+            points = {
+                self: [],
+                other: []
+            }
+
+        axis_vectors.forEach(function(axis_vector, axis_counter) {
+            points.self[axis_counter] = [];
+            points.other[axis_counter] = [];
+            var projections = {
+                self: self.vertices.map(function(self_vector, i){
+                    return axis_vector.dot(self_vector);
+                }),
+                other: poly.vertices.map(function(poly_vector, i){
+                    return axis_vector.dot(poly_vector);
+                })
+            }
+            projections.self.forEach(function(elem, i){
+                if (elem > projections.other.min() && elem < projections.other.max()) {
+                    points.self[axis_counter].push(self.vertices[i]);
+                }
+            });
+            projections.other.forEach(function(elem, i){
+                if (elem > projections.self.min() && elem < projections.self.max()) {
+                    points.other[axis_counter].push(poly.vertices[i]);
+                }
+            });
+        });
+        points.self = points.self.reduce(function(p, n, i){
+            return intersect_safe(p, n); 
+        });
+        points.other = points.other.reduce(function(p, n, i){
+            return intersect_safe(p, n); 
+        });
+        console.log(points);
     }
     w.Polygon = Polygon;
 })();
 (function(){
     var gravity = new w.Vector(0, 1).scale(9.8),
         dumpping = -1,
-        World = function(){
+        World = function World(){
             this.objects = []; 
             this.fps = 0;
         }
@@ -156,7 +217,9 @@ var w = {},
                 obj.move(dr.scale(10));
                 f = f.add(gravity.scale(obj.mass));
                 f = f.add(obj.velocity.scale(dumpping));
-                
+                for (var i = 0; i < this.objects.length; i++) if (this.objects[i].id != obj.id){
+                    obj.poly.intersectsWith(this.objects[i].poly);
+                }
                 var new_acceleration = f.scale(obj.mass),
                     dv = obj.acceleration.add(new_acceleration).scale(0.5*this.dt);
                 obj.velocity = obj.velocity.add(dv);
