@@ -109,6 +109,9 @@ var w = {},
             }
         }]);
     };
+    Vector.prototype.normalize = function normalize() {
+       return this.scale(1/this.length());
+    }
     Vector.prototype.sub = function sub() {
         return typeHelper.apply(this, [arguments, {
             args: function(x, y) {
@@ -158,38 +161,45 @@ var w = {},
                 .concat(poly.vertices.reduce(point_wallker.bind(poly), [])),
             points = {
                 self: [],
-                other: []
+                other: [],
+                arr_length: 0
             }
 
         axis_vectors.forEach(function(axis_vector, axis_counter) {
             points.self[axis_counter] = [];
             points.other[axis_counter] = [];
             var projections = {
-                self: self.vertices.map(function(self_vector, i){
+                self: self.vertices.map(function(self_vector, i) {
                     return axis_vector.dot(self_vector);
                 }),
-                other: poly.vertices.map(function(poly_vector, i){
+                other: poly.vertices.map(function(poly_vector, i) {
                     return axis_vector.dot(poly_vector);
                 })
             }
-            projections.self.forEach(function(elem, i){
+            projections.self.forEach(function(elem, i) {
                 if (elem > projections.other.min() && elem < projections.other.max()) {
                     points.self[axis_counter].push(self.vertices[i]);
                 }
             });
-            projections.other.forEach(function(elem, i){
+            projections.other.forEach(function(elem, i) {
                 if (elem > projections.self.min() && elem < projections.self.max()) {
                     points.other[axis_counter].push(poly.vertices[i]);
                 }
             });
         });
-        points.self = points.self.reduce(function(p, n, i){
+        points.self = points.self.reduce(function(p, n, i) {
             return intersect_safe(p, n); 
         });
-        points.other = points.other.reduce(function(p, n, i){
+        points.other = points.other.reduce(function(p, n, i) {
             return intersect_safe(p, n); 
         });
-        console.log(points);
+        Object.keys(points).slice(0,2).forEach(function(key) {
+            points[key] = points[key].map(function(elem){
+                return self.center.sub(elem);
+            });
+            points.arr_length += points[key].length;
+        });
+        return points;
     }
     w.Polygon = Polygon;
 })();
@@ -217,8 +227,16 @@ var w = {},
                 obj.move(dr.scale(10));
                 f = f.add(gravity.scale(obj.mass));
                 f = f.add(obj.velocity.scale(dumpping));
-                for (var i = 0; i < this.objects.length; i++) if (this.objects[i].id != obj.id){
-                    obj.poly.intersectsWith(this.objects[i].poly);
+                for (var i = 0; i < this.objects.length; i++) if (this.objects[i].id != obj.id) {
+                    var collision = obj.poly.intersectsWith(this.objects[i].poly);
+                    if (collision.arr_length) {
+                        var N = collision.self.reduce(function(p, n, i) {
+                            return p.add(n)
+                        }, new w.Vector(0,0)).normalize();
+
+                        var Vr = obj.velocity;
+                        obj.velocity = N.scale(-1 * Vr.dot(N));
+                    }
                 }
                 var new_acceleration = f.scale(obj.mass),
                     dv = obj.acceleration.add(new_acceleration).scale(0.5*this.dt);
