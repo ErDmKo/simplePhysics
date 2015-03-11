@@ -7,7 +7,7 @@ Array.prototype.min = function() {
 };
 var w = {},
     main = function() {
-        var ball = new w.Ball({x:100, y:100}),
+        var ball = new w.Ball({x: 300, y: 100}),
             block = new w.Block({
                 x: 0,
                 y: a.height-10,
@@ -94,6 +94,9 @@ var w = {},
             y = v.y + ((sub.x * Math.sin(angle)) + (sub.y * Math.cos(angle)));
         return new Vector(x, y);
     }
+    Vector.prototype.cross = function cross(v) {
+        return this.x*v.y - this.y*v.x;
+    }
     Vector.prototype.dot = function dot() {
         return typeHelper.apply(this, [arguments, {
             args: function(x, y) {
@@ -146,7 +149,20 @@ var w = {},
     };
     Polygon.prototype.addVertex = function (v) {
         this.vertices.push(v);
-    }
+    };
+    Polygon.prototype.add = function add(v) {
+        this.center = this.center.add(v);
+        this.vertices = this.vertices.map((function(vertex){
+            return vertex.add(v);
+        }).bind(this));
+        return this;
+    };
+    Polygon.prototype.rotate = function (angle) {
+        this.vertices = this.vertices.map((function(vertex){
+            return vertex.rotate(angle, this.center);
+        }).bind(this));
+        return this;
+    };
     Polygon.prototype.intersectsWith = function (poly){
         var self = this,
             point_wallker = function(prev, next, i) {
@@ -162,6 +178,7 @@ var w = {},
             points = {
                 self: [],
                 other: [],
+                all: [],
                 arr_length: 0
             }
 
@@ -187,25 +204,20 @@ var w = {},
                 }
             });
         });
-        points.self = points.self.reduce(function(p, n, i) {
-            return intersect_safe(p, n); 
-        });
-        points.other = points.other.reduce(function(p, n, i) {
-            return intersect_safe(p, n); 
-        });
+        points.self = points.self.reduce(intersect_safe);
+        points.other = points.other.reduce(intersect_safe);
         Object.keys(points).slice(0,2).forEach(function(key) {
-            points[key] = points[key].map(function(elem){
-                return self.center.sub(elem);
-            });
+            points.all = points.all.concat(points[key]);
             points.arr_length += points[key].length;
         });
         return points;
-    }
+    };
     w.Polygon = Polygon;
 })();
 (function(){
     var gravity = new w.Vector(0, 1).scale(9.8),
         dumpping = -1,
+        angularD = -1,
         World = function World(){
             this.objects = []; 
             this.fps = 0;
@@ -223,24 +235,36 @@ var w = {},
         this.objects.forEach((function(obj) {
             if (!obj.gravity) {
                 var f = new w.Vector(0, 0),
-                    dr = obj.velocity.scale(this.dt).add(obj.acceleration.scale(0.5*this.dt*this.dt));
-                obj.move(dr.scale(10));
+                    dr = obj.velocity.scale(this.dt).add(obj.acceleration.scale(0.5*this.dt*this.dt)).scale(10),
+                    torque = 0;
+
+                obj.move(dr);
                 f = f.add(gravity.scale(obj.mass));
                 f = f.add(obj.velocity.scale(dumpping));
+                
                 for (var i = 0; i < this.objects.length; i++) if (this.objects[i].id != obj.id) {
                     var collision = obj.poly.intersectsWith(this.objects[i].poly);
-                    if (collision.arr_length) {
+                    if (collision.all.length) {
                         var N = collision.self.reduce(function(p, n, i) {
-                            return p.add(n)
-                        }, new w.Vector(0,0)).normalize();
+                                return p.add(obj.poly.center.sub(n));
+                            }, new w.Vector(0,0)).normalize(),
+                            Vr = obj.velocity;
 
-                        var Vr = obj.velocity;
                         obj.velocity = N.scale(-1 * Vr.dot(N));
+                        obj.move(dr.scale(-1));
+                        obj.omega = -1 * 0.2 * (
+                            obj.omega / Math.abs(obj.omega)) * obj.position.sub(collision.all[0]).cross(Vr);
                     }
                 }
                 var new_acceleration = f.scale(obj.mass),
                     dv = obj.acceleration.add(new_acceleration).scale(0.5*this.dt);
+
                 obj.velocity = obj.velocity.add(dv);
+                torque += obj.omega * angularD;
+                obj.alpha = torque / obj.J;
+                obj.omega += obj.alpha * this.dt;
+                var deltaTheta = obj.omega * this.dt;
+                obj.rotate(deltaTheta);
             }
             obj.draw(c)
         }).bind(this));
@@ -252,12 +276,22 @@ var w = {},
         WorldObj = function WorldObj(options) {
             this.position = new w.Vector(options.x, options.y);
             this.gravity = typeof options.gravity === "undefined"? options.gravity : true;
-            this.collision = typeof options.gravity === "undefined"? true : false;
+            this.collision = typeof options.gravity === "undefined";
             this.mass = 1;
             this.velocity = new w.Vector(0, 0);
             this.acceleration =new  w.Vector(0, 0);
             this.id = id++;
+            this.theta = 0;
+            this.omega = 0;
+            this.alpha = 0;
         };
+    WorldObj.prototype.postInit = function() {
+        this.poly = this.calcPoly();
+        this.J = this.getInertia();
+    } 
+    WorldObj.prototype.getInertia = function() {
+        return this.mass * 2 / 12000;
+    }
     WorldObj.prototype.calcPoly = function() {
         return new w.Polygon(this.position);
     }
@@ -267,9 +301,13 @@ var w = {},
     WorldObj.prototype.testCollision = function(objectsList){
         throw 'Empty collision shape'; 
     }
+    WorldObj.prototype.rotate = function(angle) {
+        this.theta += angle;
+        this.poly = this.poly.rotate(angle);
+    }
     WorldObj.prototype.move = function(v) {
         this.position = this.position.add(v);
-        this.poly = this.calcPoly();
+        this.poly = this.poly.add(v);
     }
     WorldObj.prototype.drawObjShape = function(c){
         c.moveTo.apply(c, this.poly.vertices[0].args());
@@ -295,12 +333,13 @@ var w = {},
             private_vars[this.id] = {
                 radius: options.radius || 20,
             }
-            this.poly = this.calcPoly();
+            this.omega = 3;
+            this.postInit();
         };    
     Ball.prototype = Object.create(w.WorldObj.prototype);
     Ball.prototype.calcPoly = function() {
         var poly = w.WorldObj.prototype.calcPoly.apply(this, arguments),
-            size = 14,
+            size = 5,
             axis = new w.Vector(1, 0),
             trangle = (2*Math.PI)/size;
          
@@ -311,23 +350,35 @@ var w = {},
         }
         return poly;
     }
-    Ball.prototype.drawObjShape = function(c){
+    Ball.prototype.getInertia = function() {
+        var r = private_vars[this.id].radius;
+        return this.mass*r*r/200;
+    }
+    /*
+    Ball.prototype.drawObjShape = function(c) {
         c.arc.apply(c, this.position.args().concat([private_vars[this.id].radius, 0, 2*Math.PI, false]));
     }
+    */
     w.Ball = Ball;
 })();
 (function(){
     var private_vars = {},
-        Block = function Block(options){
+        Block = function Block(options) {
             w.WorldObj.apply(this, arguments); 
             private_vars[this.id] = {
                 size: options.size? options.size : new w.Vector(10, 10)   
             }
-            this.poly = this.calcPoly();
+            this.postInit();
         };
     Block.prototype = Object.create(w.WorldObj.prototype);
+    Block.prototype.getInertia = function() {
+        var height = private_vars[this.id].size.y,
+            width = private_vars[this.id].size.x;
+
+        return this.m * (height*height + width*width) / 12000;
+    };
     Block.prototype.calcPoly = function() {
-        var poly = w.WorldObj.prototype.calcPoly.apply(this, arguments);
+        var poly = new w.Polygon(this.position.add(private_vars[this.id].size.scale(0.5)));
         poly.addVertex(this.position);
         poly.addVertex(this.position.add(private_vars[this.id].size.scale(new w.Vector(1,0))));
         poly.addVertex(this.position.add(private_vars[this.id].size));
