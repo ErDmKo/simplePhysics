@@ -95,7 +95,7 @@ var w = {},
         return new Vector(x, y);
     }
     Vector.prototype.cross = function cross(v) {
-        return this.x*v.y - this.y*v.x;
+        return this.x * v.y - this.y * v.x;
     }
     Vector.prototype.dot = function dot() {
         return typeHelper.apply(this, [arguments, {
@@ -178,8 +178,7 @@ var w = {},
             points = {
                 self: [],
                 other: [],
-                all: [],
-                arr_length: 0
+                all: []
             }
 
         axis_vectors.forEach(function(axis_vector, axis_counter) {
@@ -208,7 +207,6 @@ var w = {},
         points.other = points.other.reduce(intersect_safe);
         Object.keys(points).slice(0,2).forEach(function(key) {
             points.all = points.all.concat(points[key]);
-            points.arr_length += points[key].length;
         });
         return points;
     };
@@ -236,24 +234,33 @@ var w = {},
             if (!obj.gravity) {
                 var f = new w.Vector(0, 0),
                     dr = obj.velocity.scale(this.dt).add(obj.acceleration.scale(0.5*this.dt*this.dt)).scale(10),
+                    deltaTheta = obj.omega * this.dt,
                     torque = 0;
 
                 obj.move(dr);
+                obj.rotate(deltaTheta);
+
                 f = f.add(gravity.scale(obj.mass));
                 f = f.add(obj.velocity.scale(dumpping));
                 
                 for (var i = 0; i < this.objects.length; i++) if (this.objects[i].id != obj.id) {
                     var collision = obj.poly.intersectsWith(this.objects[i].poly);
                     if (collision.all.length) {
+                        obj.move(dr.scale(-1));
+                        obj.rotate(-1*deltaTheta);
+
                         var N = collision.self.reduce(function(p, n, i) {
                                 return p.add(obj.poly.center.sub(n));
                             }, new w.Vector(0,0)).normalize(),
                             Vr = obj.velocity;
 
-                        obj.velocity = N.scale(-1 * Vr.dot(N));
-                        obj.move(dr.scale(-1));
-                        obj.omega = -1 * 0.2 * (
-                            obj.omega / Math.abs(obj.omega)) * obj.position.sub(collision.all[0]).cross(Vr);
+                        obj.velocity = N.scale(-1
+                            * 0.9
+                            * Vr.dot(N));
+                        
+                        obj.omega =  0.3 
+                            * (obj.omega / Math.abs(obj.omega))
+                            * obj.position.sub(collision.all[0]).cross(Vr);
                     }
                 }
                 var new_acceleration = f.scale(obj.mass),
@@ -263,8 +270,6 @@ var w = {},
                 torque += obj.omega * angularD;
                 obj.alpha = torque / obj.J;
                 obj.omega += obj.alpha * this.dt;
-                var deltaTheta = obj.omega * this.dt;
-                obj.rotate(deltaTheta);
             }
             obj.draw(c)
         }).bind(this));
@@ -339,7 +344,7 @@ var w = {},
     Ball.prototype = Object.create(w.WorldObj.prototype);
     Ball.prototype.calcPoly = function() {
         var poly = w.WorldObj.prototype.calcPoly.apply(this, arguments),
-            size = 5,
+            size = 10,
             axis = new w.Vector(1, 0),
             trangle = (2*Math.PI)/size;
          
