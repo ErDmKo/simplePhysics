@@ -1,5 +1,5 @@
 import { Vector } from './Vector'
-import { pipe, intersectSafe } from './Utils'
+import { intersectSafe } from './Utils'
 
 export class Polygon {
     constructor(
