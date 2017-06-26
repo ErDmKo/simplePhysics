@@ -7,6 +7,10 @@ export class Polygon {
         private vertices: Array<Vector>
     ) {}
 
+    getVertices(): Array<Vector> {
+        return this.vertices;
+    }
+
     addVertex(v: Vector): Polygon {
         this.vertices.push(v)
         return this;

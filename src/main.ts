@@ -1,6 +1,7 @@
 import { Vector } from './Vector'
 import { FrameCounter } from './FrameCounter'
 import { Polygon } from './Polygon'
+import { WorldObj } from './WorldObj'
 
 const fc = new FrameCounter()
 fc.begin()
