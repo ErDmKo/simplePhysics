@@ -7,7 +7,7 @@ export abstract class WorldObj {
     private J: number
 
     constructor(
-        private position: Vector,
+        protected position: Vector,
         private gravity: boolean = true,
         private collision: boolean = true,
         private mass: number = 1,
@@ -50,5 +50,23 @@ export abstract class WorldObj {
         c.fill();
         c.closePath();
         c.restore();
+    }
+}
+export class Ball extends WorldObj {
+    private size: number = 10
+    private axis: Vector = new Vector(1, 0)
+    private radius: number = 20
+
+    calcPoly(): Polygon {
+        let poly = new Polygon(this.position, []);
+        const trangle = ( 2 * Math.PI ) / this.size;
+        Array.call(null, {length: 10}).map(Number.call, Number)
+            .forEach(i => {
+                let point = new Vector(this.radius, 0);
+                this.position
+                    .add(point.rotate(i * trangle, this.axis));
+                poly.addVertex(point);
+            })
+        return poly;
     }
 }
