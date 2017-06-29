@@ -10,7 +10,7 @@ export abstract class WorldObj {
         protected position: Vector,
         private gravity: boolean = true,
         private collision: boolean = true,
-        private mass: number = 1,
+        protected mass: number = 1,
         private velocity: Vector = new Vector(),
         private acceleration: Vector = new Vector(),
         private id: number = 0,
@@ -67,6 +67,21 @@ export class Ball extends WorldObj {
                     .add(point.rotate(i * trangle, this.axis));
                 poly.addVertex(point);
             })
+        return poly;
+    }
+}
+export class Block extends WorldObj {
+    private size: Vector = new Vector(10, 10)
+    getInertia() {
+        let [height, width] = this.size.args();
+        return this.mass * (height * height + width * width) / 12000;
+    }
+    calcPoly() {
+        let poly = new Polygon(this.position.add(this.size.scale(new Vector(0.5, 0.5))), []);
+        poly.addVertex(this.position)
+        poly.addVertex(this.position.add(this.size.scale(new Vector(1, 0))))
+        poly.addVertex(this.position.add(this.size))
+        poly.addVertex(this.position.add(this.size.scale(new Vector(0, 1))))
         return poly;
     }
 }
