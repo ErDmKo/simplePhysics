@@ -24,6 +24,46 @@ export abstract class WorldObj {
 
     abstract calcPoly(): Polygon
 
+    getGravity(): boolean {
+        return this.gravity;
+    }
+    getJ(): number {
+        return this.J;
+    }
+
+    getAlpha(): number {
+        return this.alpha;
+    }
+
+    setAlpha(a: number): WorldObj {
+        this.alpha = a;
+        return this;
+    }
+    getMass(): number {
+        return this.mass;
+    }
+    getPosition(): Vector {
+        return this.position;
+    }
+    getAcceleration(): Vector {
+        return this.acceleration;
+    }
+    setVelocity(v: Vector) {
+        this.velocity = v;
+        return this;
+    }
+
+    getVelocity(): Vector {
+        return this.velocity;
+    }
+    getOmega(): number {
+        return this.omega;
+    }
+    setOmega(n: number): WorldObj {
+        this.omega = n;
+        return this;
+    }
+
     getInertia(): number {
         return this.mass * 2 / 12000;
     }
@@ -37,6 +77,9 @@ export abstract class WorldObj {
     rotate(angle: number) {
         this.theta += angle;
         this.poly = this.poly.rotate(angle);
+    }
+    getPoly(): Polygon {
+        return this.poly;
     }
     move(v: Vector) {
         this.position.add(v);

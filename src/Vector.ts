@@ -10,6 +10,11 @@ export class Vector {
         const [x, y] = v.args()
         return this.x * y - this.y * x
     }
+    fill(n: number): Vector {
+        this.x = n;
+        this.y = n;
+        return this;
+    }
     dot(v: Vector): number {
         const [x, y] = this.scale(v).args()
         return x + y

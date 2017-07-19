@@ -10,6 +10,9 @@ export class Polygon {
     getVertices(): Array<Vector> {
         return this.vertices;
     }
+    getCenter(): Vector {
+        return this.center;
+    }
 
     addVertex(v: Vector): Polygon {
         this.vertices.push(v)
