@@ -23,8 +23,8 @@ export class Vector {
         const length = 1/this.length();
         return this.scale(new Vector(length, length))
     }
-    scale(v: Vector): Vector {
-        const [x, y] = v.args()
+    scale(v: Vector | number): Vector {
+        const [x, y] = typeof v == "number" ? [v, v] : v.args()
         return new Vector(this.x * x, this.y * y)
     }
     length(): number {
@@ -39,7 +39,7 @@ export class Vector {
             [subX, subY] = sub.args(),
             [vX,  vY] = v.args(),
             x = vX + (subX * Math.cos(angle) - subY * Math.sin(angle)),
-            y = vY + (subX * Math.sin(angle) - subY * Math.cos(angle))
+            y = vY + (subX * Math.sin(angle) + subY * Math.cos(angle))
         return new Vector(x, y)
     }
     args(): Array<number> {

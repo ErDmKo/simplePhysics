@@ -1,25 +1,37 @@
 import { Vector } from './Vector'
 import { Polygon } from './Polygon'
 
-export abstract class WorldObj {
+interface WorldObjOpt {
+    position: Vector,
+    gravity?: boolean,
+    collision?: boolean,
+    mass?: number,
+    velocity?: Vector,
+    acceleration?: Vector,
+    id?: number,
+    theta?: number,
+    omega?: number,
+    alpha?: number,
+}
 
-    private poly: Polygon
-    private J: number
+export abstract class WorldObj implements WorldObjOpt {
+    poly: Polygon
+    J: number
+    gravity = true
+    position = new Vector()
+    collision = true
+    mass = 1
+    velocity = new Vector()
+    acceleration = new Vector()
+    id = 0
+    theta = 0
+    omega = 0
+    alpha = 0
 
-    constructor(
-        protected position: Vector,
-        private gravity: boolean = true,
-        private collision: boolean = true,
-        protected mass: number = 1,
-        private velocity: Vector = new Vector(),
-        private acceleration: Vector = new Vector(),
-        private id: number = 0,
-        private theta: number = 0,
-        private omega: number = 0,
-        private alpha: number = 0
-    ) {
-        this.poly = this.calcPoly();
-        this.J = this.getInertia();
+    constructor(options: WorldObjOpt) {
+        Object.keys(options).forEach(key => {
+            this[key] = options[key];
+        })
     }
 
     abstract calcPoly(): Polygon
@@ -60,7 +72,7 @@ export abstract class WorldObj {
         return this.omega;
     }
     setOmega(n: number): WorldObj {
-        this.omega = n;
+        this.omega = Math.abs(n) < 0.000001 ? 0 : n;
         return this;
     }
 
@@ -82,49 +94,86 @@ export abstract class WorldObj {
         return this.poly;
     }
     move(v: Vector) {
-        this.position.add(v);
+        this.position = this.position.add(v);
         this.poly.add(v);
     }
     draw(c: CanvasRenderingContext2D) {
+        const [x, y] = this.poly.getCenter().args();
         c.save();
         c.beginPath();
         this.drawObjShape(c);
         c.fillStyle = 'green';
         c.fill();
         c.closePath();
+        c.beginPath();
+        c.arc(x, y, 2, 0, 2 * Math.PI);
+        c.fillStyle = 'black';
+        c.fill();
         c.restore();
     }
 }
 export class Ball extends WorldObj {
-    private size: number = 10
-    private axis: Vector = new Vector(1, 0)
-    private radius: number = 20
+    polys: number
+    axis = new Vector(1, 0)
+    radius: number
+
+    constructor(
+        options: WorldObjOpt & {
+            polys?: number
+            radius?: number
+    }) {
+        super(options);
+        this.poly = this.calcPoly();
+        this.J = this.getInertia();
+    }
 
     calcPoly(): Polygon {
         let poly = new Polygon(this.position, []);
-        const trangle = ( 2 * Math.PI ) / this.size;
-        Array.call(null, {length: 10}).map(Number.call, Number)
-            .forEach(i => {
-                let point = new Vector(this.radius, 0);
-                this.position
-                    .add(point.rotate(i * trangle, this.axis));
-                poly.addVertex(point);
-            })
+        const trangle = ( 2 * Math.PI ) / this.polys;
+        for (var i = 0; i < this.polys; i++) {
+            let point = new Vector(this.radius, 0)
+                .rotate(i * trangle, this.axis)
+                .add(this.position)
+            poly.addVertex(point);
+        }
         return poly;
+    }
+    getInertia () {
+        var r = this.radius;
+        return this.mass*r*r/200;
     }
 }
 export class Block extends WorldObj {
-    private size: Vector = new Vector(10, 10)
+    size: Vector
+
+    constructor(options: WorldObjOpt & {
+        size: Vector
+    }) {
+        super(options);
+        this.poly = this.calcPoly();
+        this.J = this.getInertia();
+    }
+
     getInertia() {
         let [height, width] = this.size.args();
         return this.mass * (height * height + width * width) / 12000;
     }
     calcPoly() {
-        let poly = new Polygon(this.position.add(this.size.scale(new Vector(0.5, 0.5))), []);
+        let poly = new Polygon(
+            this.position.add(this.size.scale(new Vector(0.5, 0.5)))
+        );
         poly.addVertex(this.position)
-        poly.addVertex(this.position.add(this.size.scale(new Vector(1, 0))))
+        poly.addVertex(
+            this.position.add(
+                this.size.scale(new Vector(1, 0))
+            )
+        )
         poly.addVertex(this.position.add(this.size))
-        poly.addVertex(this.position.add(this.size.scale(new Vector(0, 1))))
+        poly.addVertex(
+            this.position.add(
+                this.size.scale(new Vector(0, 1))
+            )
+        )
         return poly;
     }
 }

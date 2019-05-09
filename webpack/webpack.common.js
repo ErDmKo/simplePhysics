@@ -7,6 +7,8 @@ module.exports = {
     },
     output: {
         path: path.join(__dirname, '/../dist'),
+        library: 'p',
+        libraryTarget: 'var',
         filename: '[name].bundle.js'
     },
     devServer: {

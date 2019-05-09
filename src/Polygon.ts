@@ -4,7 +4,7 @@ import { intersectSafe } from './Utils'
 export class Polygon {
     constructor(
         private center: Vector,
-        private vertices: Array<Vector>
+        private vertices: Array<Vector> = []
     ) {}
 
     getVertices(): Array<Vector> {
@@ -30,11 +30,14 @@ export class Polygon {
         return this;
     }
     intersectsWith(poly: Polygon) {
-        const pointWallker = (
+        const pointWallker = function (
             collector: Array<Vector>,
             next: Vector,
             i:number
-        ): Array<Vector> => {
+        ): Array<Vector> {
+            if (i >= this.vertices.length) {
+                return collector;
+            }
             const iNext = i == this.vertices.length - 1 ? 0 : i+1;
             collector.push(this.vertices[i].sub(this.vertices[iNext]));
             return collector
@@ -57,7 +60,7 @@ export class Polygon {
                 projections.self.forEach((elem: number, i: number ) => {
                     if (elem > Math.min.apply(null, projections.other) 
                         && elem < Math.max.apply(null, projections.other)) {
-                        points.self[axisCounter].push(poly.vertices[i]);
+                        points.self[axisCounter].push(this.vertices[i]);
                     }
                 })
                 projections.other.forEach((elem: number, i: number) => {
