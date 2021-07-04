@@ -1,12 +1,10 @@
 export class FrameCounter {
   constructor(
-    private startTime: number = 0,
     private prevTime: number = 0,
     private frames: number = 0,
     private fps: number = 0
   ) {}
   begin(): FrameCounter {
-    this.startTime = Date.now();
     return this;
   }
   getFps(): number {

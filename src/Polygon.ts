@@ -24,10 +24,12 @@ export class Polygon {
     this.vertices = this.vertices.map((v) => v.rotate(angle, this.center));
     return this;
   }
+  // https://en.wikipedia.org/wiki/Hyperplane_separation_theorem
   intersectsWith(poly: Polygon) {
     const pointWallker = function (
+      this: Polygon,
       collector: Array<Vector>,
-      next: Vector,
+      _: Vector,
       i: number
     ): Array<Vector> {
       if (i >= this.vertices.length) {
@@ -37,7 +39,7 @@ export class Polygon {
       collector.push(this.vertices[i].sub(this.vertices[iNext]));
       return collector;
     };
-    let points = {
+    let points: Record<string, Vector[][]> = {
       self: [],
       other: [],
       all: [],
@@ -46,8 +48,8 @@ export class Polygon {
       .reduce(pointWallker.bind(this), [])
       .concat(poly.vertices.reduce(pointWallker.bind(poly), []))
       .forEach((axisVector, axisCounter) => {
-        points.self[axisCounter] = [];
-        points.other[axisCounter] = [];
+        points.self[axisCounter] = [] as Vector[];
+        points.other[axisCounter] = [] as Vector[];
         let projections = {
           self: this.vertices.map((selfVector) => axisVector.dot(selfVector)),
           other: poly.vertices.map((polyVector) => axisVector.dot(polyVector)),
@@ -69,13 +71,11 @@ export class Polygon {
           }
         });
       });
-    points.self = points.self.reduce(intersectSafe);
-    points.other = points.other.reduce(intersectSafe);
-    Object.keys(points)
-      .slice(0, 2)
-      .forEach((key) => {
-        points.all = points.all.concat(points[key]);
-      });
-    return points;
+    const result: Record<string, Vector[]> = {
+      self: points.self.reduce(intersectSafe),
+      other: points.other.reduce(intersectSafe),
+    };
+    result.all = result.self.concat(result.other);
+    return result;
   }
 }

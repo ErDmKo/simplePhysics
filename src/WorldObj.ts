@@ -15,8 +15,13 @@ interface WorldObjOpt {
 }
 
 export abstract class WorldObj implements WorldObjOpt {
-  poly: Polygon;
-  J: number;
+  constructor(options: WorldObjOpt) {
+    (Object.keys(options) as Array<keyof WorldObjOpt>).forEach((key) => {
+      (this as any)[key] = options[key];
+    });
+  }
+  poly: Polygon = new Polygon(new Vector(0, 0), []);
+  J = 0;
   gravity = true;
   position = new Vector();
   collision = true;
@@ -27,12 +32,6 @@ export abstract class WorldObj implements WorldObjOpt {
   theta = 0;
   omega = 0;
   alpha = 0;
-
-  constructor(options: WorldObjOpt) {
-    Object.keys(options).forEach((key) => {
-      this[key] = options[key];
-    });
-  }
 
   abstract calcPoly(): Polygon;
 
@@ -59,6 +58,10 @@ export abstract class WorldObj implements WorldObjOpt {
   }
   getAcceleration(): Vector {
     return this.acceleration;
+  }
+  setAcceleration(v: Vector) {
+    this.acceleration = v;
+    return this;
   }
   setVelocity(v: Vector) {
     this.velocity = v;
@@ -113,9 +116,9 @@ export abstract class WorldObj implements WorldObjOpt {
   }
 }
 export class Ball extends WorldObj {
-  polys: number;
+  polys?: number;
   axis = new Vector(1, 0);
-  radius: number;
+  radius?: number;
 
   constructor(
     options: WorldObjOpt & {
@@ -130,6 +133,9 @@ export class Ball extends WorldObj {
 
   calcPoly(): Polygon {
     let poly = new Polygon(this.position, []);
+    if (!this.polys || !this.axis) {
+      return poly;
+    }
     const trangle = (2 * Math.PI) / this.polys;
     for (var i = 0; i < this.polys; i++) {
       let point = new Vector(this.radius, 0)
@@ -140,12 +146,12 @@ export class Ball extends WorldObj {
     return poly;
   }
   getInertia() {
-    var r = this.radius;
+    var r = this.radius || 0;
     return (this.mass * r * r) / 200;
   }
 }
 export class Block extends WorldObj {
-  size: Vector;
+  size?: Vector;
 
   constructor(
     options: WorldObjOpt & {
@@ -158,10 +164,16 @@ export class Block extends WorldObj {
   }
 
   getInertia() {
+    if (!this.size) {
+      return 0;
+    }
     let [height, width] = this.size.args();
     return (this.mass * (height * height + width * width)) / 12000;
   }
   calcPoly() {
+    if (!this.size) {
+      return new Polygon(new Vector(0, 0), []);
+    }
     let poly = new Polygon(
       this.position.add(this.size.scale(new Vector(0.5, 0.5)))
     );

@@ -39,7 +39,7 @@ export class Vector {
       y = vY + (subX * Math.sin(angle) + subY * Math.cos(angle));
     return new Vector(x, y);
   }
-  args(): Array<number> {
+  args(): [x: number, y: number] {
     return [this.x, this.y];
   }
   sub(v: Vector): Vector {

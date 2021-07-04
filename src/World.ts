@@ -2,7 +2,7 @@ import { Vector } from "./Vector";
 import { WorldObj } from "./WorldObj";
 
 interface WorldOpt {
-  objects?: WorldObj[];
+  objects: WorldObj[];
   fps?: number;
   gravity?: Vector;
   dumpping?: number;
@@ -10,17 +10,17 @@ interface WorldOpt {
   dt?: number;
 }
 
-export class World {
+export class World implements WorldOpt {
+  gravity = new Vector(0, 9.8);
   objects: WorldObj[] = [];
-  fps?: 0;
-  gravity?: Vector = new Vector(0, 9.8);
-  dumpping?: number = -1;
-  angularD?: number = -1;
-  dt?: number = 0;
+  fps = 0;
+  dumpping = -1;
+  angularD = -1;
+  dt = 0;
 
-  constructor(private options: WorldOpt) {
-    Object.keys(options).forEach((key) => {
-      this[key] = options[key];
+  constructor(options: WorldOpt) {
+    (Object.keys(options) as Array<keyof WorldOpt>).forEach((key) => {
+      (this as any)[key] = options[key];
     });
   }
 
@@ -86,6 +86,7 @@ export class World {
         torque = obj.getOmega() * this.angularD;
 
         obj
+          .setAcceleration(newAcceleration)
           .setVelocity(obj.getVelocity().add(dv))
           .setAlpha(torque / obj.getJ())
           .setOmega(obj.getOmega() + obj.getAlpha() * this.dt);

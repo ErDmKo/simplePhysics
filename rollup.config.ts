@@ -13,7 +13,7 @@ export default {
         typescript(),
         copy({
             targets: [{
-                src: 'src/index.html', dest: 'dist/index.html'
+                src: 'src/index.html', dest: 'dist/'
             }]
         })
     ]

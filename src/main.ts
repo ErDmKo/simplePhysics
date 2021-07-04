@@ -1,12 +1,10 @@
 import { Vector } from "./Vector";
 import { FrameCounter } from "./FrameCounter";
-import { Polygon } from "./Polygon";
-import { WorldObj, Ball, Block } from "./WorldObj";
+import { Ball, Block } from "./WorldObj";
 import { World } from "./World";
 
 export const m = (() => {
   const canvas = document.getElementsByTagName("canvas")[0];
-  const body = document.body;
   const ctx = canvas.getContext("2d");
 
   const fc = new FrameCounter();
@@ -25,6 +23,9 @@ export const m = (() => {
     objects: [ball, block],
   });
   const animate = () => {
+    if (!ctx) {
+      return;
+    }
     fc.begin();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     world.setFps(fc.getFps());
